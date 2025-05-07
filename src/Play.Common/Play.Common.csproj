@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <PackageDescription>Common library for Play Economy services.</PackageDescription>
+    <Authors>Andres Suarez</Authors>
+    <Company>.Net Microservices</Company>
   </PropertyGroup>
 
   <ItemGroup>
