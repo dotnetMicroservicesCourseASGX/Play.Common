@@ -13,18 +13,24 @@ namespace Play.Common.MassTransit;
 
 public static class Extensions
 {
-    private const string RabbitMQ = "RabbitMQ";
-    private const string AzureServiceBus = "AzureServiceBus";
+    private const string RabbitMQ = "RABBITMQ";
+    private const string ServiceBus = "SERVICEBUS";
     public static IServiceCollection AddMassTransitWithMessageBroker(
         this IServiceCollection services, IConfiguration configuration,
          Action<IRetryConfigurator> configureRetries = null)
     {
         var serviceSettings = configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>();
-        return (serviceSettings.MessageBroker?.ToUpper()) switch
+        switch (serviceSettings?.MessageBroker?.ToUpperInvariant())
         {
-            AzureServiceBus => services.AddMassTransitWithServiceBus(configureRetries),
-            RabbitMQ or _ => services.AddMassTransitWithRabbitMQ(configureRetries)
-        };
+            case ServiceBus:
+                services.AddMassTransitWithServiceBus(configureRetries);
+                break;
+            case RabbitMQ:
+            default:
+                services.AddMassTransitWithRabbitMQ(configureRetries);
+                break;
+        }
+        return services;
     }
     public static IServiceCollection AddMassTransitWithRabbitMQ(
         this IServiceCollection services, Action<IRetryConfigurator> configureRetries = null)
@@ -55,9 +61,10 @@ public static class Extensions
     Action<IRetryConfigurator> configureRetries = null)
     {
         var serviceSettings = configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>();
-        switch (serviceSettings.MessageBroker?.ToUpper())
+        
+        switch (serviceSettings.MessageBroker?.ToUpperInvariant())
         {
-            case AzureServiceBus:
+            case ServiceBus:
                 configure.UsingPlayEconomyAzureServiceBus(configureRetries);
                 break;
             case RabbitMQ:
