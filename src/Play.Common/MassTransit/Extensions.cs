@@ -61,7 +61,7 @@ public static class Extensions
     Action<IRetryConfigurator> configureRetries = null)
     {
         var serviceSettings = configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>();
-        
+
         switch (serviceSettings.MessageBroker?.ToUpperInvariant())
         {
             case ServiceBus:
@@ -96,7 +96,9 @@ public static class Extensions
     public static void UsingPlayEconomyAzureServiceBus(this IServiceCollectionBusConfigurator configure,
     Action<IRetryConfigurator> configureRetries = null)
     {
-        configure.UsingAzureServiceBus((context, cfg) =>
+        try
+        {
+            configure.UsingAzureServiceBus((context, cfg) =>
         {
             var configuration = context.GetService<IConfiguration>();
             var serviceSettings = configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>();
@@ -110,5 +112,12 @@ public static class Extensions
 
             cfg.UseMessageRetry(configureRetries);
         });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error configuring Azure Service Bus: {ex.Message}");
+            throw;
+        }
+
     }
 }

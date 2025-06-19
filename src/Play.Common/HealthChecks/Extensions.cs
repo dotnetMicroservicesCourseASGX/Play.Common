@@ -1,5 +1,6 @@
 
 using System;
+using System.Security.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Routing;
@@ -15,7 +16,7 @@ public static class Extensions
 {
     private const string MongoCheckName = "mongoDb";
     private const string ReadyTagName = "ready";
-    private const int DefaultSeconds = 3;
+    private const int DefaultSeconds = 10;
 
     public static IHealthChecksBuilder AddMongoDb(this IHealthChecksBuilder builder, TimeSpan? timeSpan = default)
     {
@@ -23,14 +24,16 @@ public static class Extensions
                 sp =>
                 {
                     var configuration = sp.GetService<IConfiguration>();
-                    var mongoDbSettings = configuration.GetSection(nameof(MongoDbSettings))
-                    .Get<MongoDbSettings>();
-                    var client = new MongoClient(mongoDbSettings.ConnectionString);
-                    return new MongoDbHealthCheck(client);
+                    var mongoDbSettings = configuration.GetSection(nameof(MongoDbSettings)).Get<MongoDbSettings>();
+                    MongoClientSettings settings = MongoClientSettings.FromUrl(new MongoUrl(mongoDbSettings.ConnectionString));
+                    settings.SslSettings = new SslSettings() { EnabledSslProtocols = SslProtocols.Tls12 };
+                    var mongoClient = new MongoClient(settings);
+
+                    return new MongoDbHealthCheck(mongoClient);
                 },
                 HealthStatus.Unhealthy,
                 [ReadyTagName],
-                TimeSpan.FromSeconds(DefaultSeconds)));
+                timeSpan ?? TimeSpan.FromSeconds(DefaultSeconds)));
     }
 
     public static void MapPlayEcnomyHealthChecks(this IEndpointRouteBuilder endpoints)

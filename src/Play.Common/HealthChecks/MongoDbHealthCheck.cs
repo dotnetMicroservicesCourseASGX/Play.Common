@@ -6,14 +6,9 @@ using MongoDB.Driver;
 
 namespace Play.Common.HealthChecks;
 
-public class MongoDbHealthCheck : IHealthCheck
+public class MongoDbHealthCheck(MongoClient mongoClient) : IHealthCheck
 {
-    private readonly MongoClient mongoClient;
-
-    public MongoDbHealthCheck(MongoClient mongoClient)
-    {
-        this.mongoClient = mongoClient;
-    }
+    private readonly MongoClient mongoClient = mongoClient;
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -21,13 +16,15 @@ public class MongoDbHealthCheck : IHealthCheck
     {
         try
         {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cts.Token).Token;
             await mongoClient.ListDatabasesAsync(cancellationToken);
+
             return HealthCheckResult.Healthy();
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy(exception: ex,
-                description: "MongoDB is not reachable or not responding.");
+            return HealthCheckResult.Unhealthy(exception: ex);
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Security.Authentication;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
@@ -20,7 +21,10 @@ namespace Play.Common.MongoDB
                 var configuration = serviceProvider.GetService<IConfiguration>();
                 var serviceSettings = configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>();
                 var mongoDbSettings = configuration.GetSection(nameof(MongoDbSettings)).Get<MongoDbSettings>();
-                var mongoClient = new MongoClient(mongoDbSettings.ConnectionString);
+                MongoClientSettings settings = MongoClientSettings.FromUrl(new MongoUrl(mongoDbSettings.ConnectionString));
+                settings.SslSettings = new SslSettings() { EnabledSslProtocols = SslProtocols.Tls12 };
+                var mongoClient = new MongoClient(settings);
+                // var mongoClient = new MongoClient(mongoDbSettings.ConnectionString);
                 return mongoClient.GetDatabase(serviceSettings.ServiceName);
             });
 
