@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Play.Common.Settings;
 
@@ -16,20 +17,41 @@ public static class Extensions
 {
     private const string MongoCheckName = "mongoDb";
     private const string ReadyTagName = "ready";
-    private const int DefaultSeconds = 10;
+    private const int DefaultSeconds = 15;
 
     public static IHealthChecksBuilder AddMongoDb(this IHealthChecksBuilder builder, TimeSpan? timeSpan = default)
     {
         return builder.Add(new HealthCheckRegistration(MongoCheckName,
                 sp =>
                 {
-                    var configuration = sp.GetService<IConfiguration>();
-                    var mongoDbSettings = configuration.GetSection(nameof(MongoDbSettings)).Get<MongoDbSettings>();
-                    MongoClientSettings settings = MongoClientSettings.FromUrl(new MongoUrl(mongoDbSettings.ConnectionString));
-                    settings.SslSettings = new SslSettings() { EnabledSslProtocols = SslProtocols.Tls12 };
-                    var mongoClient = new MongoClient(settings);
+                    var logger = sp.GetService<ILogger>();
+                    MongoClient mongoClient;
+                    try
+                    {
+                        // logger?.Log(LogLevel.Information, "Getting IConfiguration from service provider.");
+                        var configuration = sp.GetService<IConfiguration>() ?? throw new InvalidOperationException("Configuration is required to create MongoClient.");
+                        // logger?.Log(LogLevel.Information, "Configuration retrieved successfully. Getting MongoDbSettings.");
+                        var mongoDbSettings = configuration.GetSection(nameof(MongoDbSettings)).Get<MongoDbSettings>();
+                        if (mongoDbSettings == null || string.IsNullOrWhiteSpace(mongoDbSettings.ConnectionString))
+                        {
+                            // logger?.Log(LogLevel.Error, "MongoDbSettings or ConnectionString is null or empty. Cannot create MongoClient.");
+                            throw new InvalidOperationException("MongoDbSettings and ConnectionString are required to create MongoClient.");
+                        }
+                        MongoClientSettings settings = MongoClientSettings.FromUrl(new MongoUrl(mongoDbSettings.ConnectionString));
+                        // logger?.Log(LogLevel.Information, "MongoClientSettings created from connection string: {connectionString}", mongoDbSettings.ConnectionString);
+                        settings.SslSettings = new SslSettings() { EnabledSslProtocols = SslProtocols.Tls12 };
+                        // logger?.Log(LogLevel.Information, "SSL settings configured for MongoClient.");
+                        mongoClient = new MongoClient(settings);
+                        logger?.Log(LogLevel.Information, "MongoClient created successfully.");
 
-                    return new MongoDbHealthCheck(mongoClient);
+                    }
+                    catch (Exception ex)
+                    {
+                        // get logger and log the exception
+                        logger?.Log(LogLevel.Error, "Failed to create MongoClient: {message}", ex.Message);
+                        throw;
+                    }
+                    return new MongoDbHealthCheck(mongoClient, logger);
                 },
                 HealthStatus.Unhealthy,
                 [ReadyTagName],
